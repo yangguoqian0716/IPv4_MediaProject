@@ -88,22 +88,22 @@ static void socket_init(void)
         exit(1);
     }
 
-    inet_pton(AF_INET,server_conf.mgroup,&mreq.imr_multiaddr);
-    inet_pton(AF_INET,"0.0.0.0",&mreq.imr_address);
-    mreq.imr_ifindex = if_nametoindex(server_conf.ifname);
+    inet_pton(AF_INET,server_conf.mgroup,&mreq.imr_multiaddr);/*多播地址*/
+    inet_pton(AF_INET,"0.0.0.0",&mreq.imr_address);/*本机IP,ANYADDRESS*/
+    mreq.imr_ifindex = if_nametoindex(server_conf.ifname);/*设备索引号*/
     if(setsockopt(server_sd,IPPROTO_IP,IP_MULTICAST_IF,&mreq,sizeof(mreq)) < 0)
     {
         syslog(LOG_ERR,"setsocketopt(IP_MULTICAST_IF):%s",strerror(errno));
         exit(1);
     }
-
-
 }
 
 int main(int argc,char **argv)
 {
-    int c;
+    int c,err,i;
+    int list_size;
     struct sigaction sa;
+    struct mlib_listentry_st *list;
 
     sa.sa_handler = daemon_exit;
 
@@ -145,7 +145,6 @@ int main(int argc,char **argv)
                 break;
             case 'H':
                 printfhelp();
-                exit(0);
                 break;
             default:
                 abort();//调用 abort() 会导致程序向操作系统发送退出信号，终止程序的运行
@@ -174,8 +173,22 @@ int main(int argc,char **argv)
 
     /*SOKET初始化*/
     socket_init();
+    /*获取频道信息*/
+    err = mlib_getchnlist(&list,&list_size);
+    if(err)
+    {
 
+    }
+    /*创建节目单线程*/
+    thr_list_create(list,list_size);
 
+    /*创建频道线程*/
+    for(i = 0;i<list_size;i++)
+    {
+        thr_list_create(list + i);
+    }
+
+    syslog(LOG_DEBUG,"%d channel threads created.",i);
 
     while(1)
         pause();
