@@ -185,7 +185,7 @@ int main(int argc,char **argv)
     /*创建频道线程*/
     for(i = 0;i<list_size;i++)
     {
-        thr_list_create(list + i);
+        thr_channel_create(list + i);
     }
 
     syslog(LOG_DEBUG,"%d channel threads created.",i);
