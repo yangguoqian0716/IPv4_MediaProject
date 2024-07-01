@@ -7,7 +7,6 @@
 #include <sys/types.h>
 #include <string.h>
 #include <pthread.h>
-
 #include "mytbf.h"
 
 struct mytbf_st

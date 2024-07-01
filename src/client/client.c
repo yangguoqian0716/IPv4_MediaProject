@@ -10,9 +10,9 @@
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <net/if.h>
+#include <proto.h>
 
 #include "client.h"
-#include "proto.h"
 
 struct client_conf_st client_conf = {
         .rcvport = DEFAULT_RCVPORT,
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
     inet_pton(AF_INET, client_conf.mgroup, &mreq.imr_multiaddr);
     inet_pton(AF_INET, "0.0.0.0", &mreq.imr_address);
     mreq.imr_ifindex = if_nametoindex("eth0");
-    if (setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+    if (setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)// 加入多播组
     {
         perror("setsockopt()");
         exit(1);
@@ -160,6 +160,9 @@ int main(int argc, char **argv)
     else
     {
         // 父进程：从网络收包，通过管道发送给子进程
+        //收节目单 选择频道包 收频道包，发送给子进程
+
+        // 收节目单
         struct msg_list_st *msg_list;
         msg_list = malloc(MSG_LIST_MAX);
         if (msg_list == NULL)
@@ -173,7 +176,7 @@ int main(int argc, char **argv)
             ssize_t len = recvfrom(sd, msg_list, MSG_LIST_MAX, 0, (struct sockaddr *)&serveraddr, &serveraddr_len);
             if (len < sizeof(struct msg_list_st))
             {
-                fprintf(stderr, "message is too short\n");
+                fprintf(stderr, "message is too small.\n");
                 continue;
             }
             if (msg_list->chnid != LISTCHNID)
@@ -184,12 +187,13 @@ int main(int argc, char **argv)
             break;
         }
 
+        //打印节目单
         struct msg_listentry_st *pos;
-        for (pos = msg_list->entry; (char *)pos < ((char *)msg_list + len); pos = (struct msg_listentry_st *)((char *)pos + ntohs(pos->len)))
+        for (pos = msg_list->entry; (char *)pos < (((char *)msg_list) + len); pos = (struct msg_listentry_st *)(((char *)pos) + ntohs(pos->len)))
         {
             printf("channel %d: %s\n", pos->chnid, pos->desc);
         }
-
+        // 选择频道
         while (1)
         {
             int ret = scanf("%d", &chosenid);
@@ -199,6 +203,7 @@ int main(int argc, char **argv)
                 break;
         }
 
+        // 接收频道包
         struct msg_channel_st *msg_channel;
         msg_channel = malloc(MSG_CHANNEL_MAX);
         if (msg_channel == NULL)
@@ -225,6 +230,7 @@ int main(int argc, char **argv)
             if (msg_channel->chnid == chosenid)
             {
                 fprintf(stdout, "accepted msg: %d received\n", msg_channel->chnid);
+                // 将选择的频道包数据写入管道
                 if (writen(pd[1], (char *)msg_channel + sizeof(chnid_t), len - sizeof(chnid_t)) < 0)
                     exit(1);
             }
